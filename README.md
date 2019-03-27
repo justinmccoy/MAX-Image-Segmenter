@@ -24,36 +24,28 @@ array corresponds to the pixel at the top left hand corner of the image.
 The model files are hosted on IBM Cloud Object Storage. The code in this repository deploys the model as a web service in a Docker container. This repository was developed as part of the [IBM Code Model Asset Exchange](https://developer.ibm.com/code/exchanges/models/), where other common models have been pretrained and available for download.
 
 
+
 ## Prerequisites
-
-* `docker`: The [Docker](https://www.docker.com/) command-line interface. Follow the [installation instructions](https://docs.docker.com/install/) for your system.
-* The minimum recommended resources for this model is 2GB Memory and 2 CPUs.
+* `docker`: The [Docker](https://www.docker.com/) command-line iterface. Follow the [installations instructions](https://docs.docker.com/install/) for your system.
 
 
-# Options
+## Steps
 
-1. [Build and Run Locally](#build-and-run-locally)
-2. [Run from Docker Hub Locally](#run-from-docker-hub-locally)
-3. [Deploy from Docker Hub on Kubernetes](#deploy-from-docker-hub-on-kubernetes)
-
-## Build and Run Locally
-
-To build and deploy the model to a REST API using Docker, follow these steps:
+To build and deploy the Deep Learning model to a REST API using Docker, follow these steps:
 
 1. [Build the Model](#1-build-the-model)
 2. [Deploy the Model](#2-deploy-the-model)
 3. [Use the Model](#3-use-the-model)
 4. [Run the Notebook](#4-run-the-notebook)
 5. [Development](#5-development)
-6. [Cleanup](#6-cleanup)
 
 
 ### 1. Build the Model
 
-Clone the `MAX-Image-Segmenter` repository locally. In a terminal, run the following command:
+Clone the `MAX-Image-Segmenter` repository locally. In a terminal, run the following command or [download](https://github.com/justinmccoy/MAX-Image-Segmenter/archive/master.zip) and extract this repo.
 
 ```
-$ git clone https://github.com/IBM/MAX-Image-Segmenter.git
+$ git clone https://github.com/justinmccoy/MAX-Image-Segmenter.git
 ```
 
 Change directory into the repository base folder: 
@@ -94,11 +86,9 @@ _Note_ that the image size parameter controls to what size the image will be res
 
 ### 3. Use the Model
 
-The API server automatically generates an interactive Swagger documentation page. Go to `http://localhost:5000` to load
-it. From there you can explore the API and also create test requests.
+The API server automatically generates an interactive Swagger documentation page. Go to `http://localhost:5000` to load it. From there you can explore the API and also create test requests.
 
-Use the `model/predict` endpoint to load a test image (you can use one of the test images from the `assets` folder) and
-get predicted segmentation map for the image from the API.
+Use the `model/predict` endpoint to load a test image (you can use one of the test images from the `assets` folder) and get predicted segmentation map for the image from the API.
 
 ![pic](docs/swagger-screenshot.png "Swagger Screenshot")
 
@@ -164,36 +154,108 @@ This will start the notebook server. You can open the demo notebook by clicking 
 
 ### 5. Development
 
-To run the Flask API app in debug mode, edit `config.py` to set `DEBUG = True` under the application settings. You will
-then need to rebuild the Docker image (see [step 1](#1-build-the-model)).
+To run the Flask API app in debug mode, edit `config.py` to set `DEBUG = True` under the application settings. You will then need to rebuild the Docker image (see [step 1](#1-build-the-model)).
 
-### 6. Cleanup
+**Taking a closer look at the code**
 
-To stop the Docker container, type `CTRL` + `C` in your terminal.
+Our implementation is using Python Flask to front the deep learning model as a REST API, defining the endpoints and hosting the application as a web service.  Bundled within the Python web service and `/predict` API is an application that loads the trained deep learning image segmentation model using Tensorflow for Python, and wraps the model with some helper methods to simplify prediction when called from our Flask application.
 
+Flask Web Service exposing two HTTP endpoints
 
-## Run from Docker Hub Locally
-
-To run the prebuilt docker image, which automatically starts the model serving API, run:
-
-```
-$ docker run -it -p 5000:5000 codait/max-image-segmenter
+```http
+POST /model/predict
+GET /model/metadata
 ```
 
-This will pull a pre-built image from Docker Hub (or use an existing image if already cached locally) and run it.
-If you'd rather checkout and build the model locally you can follow the [run locally](#run-locally) steps below.
+**Let's dig into the code a bit:**
 
-## Deploy from Docker Hub on Kubernetes
+* **How is the container built?** _[(see step 1)](#1-build-the-model)_
 
-You can also deploy the prebuilt model on Kubernetes using the latest docker image on Docker Hub.
+  [app.py](https://github.com/justinmccoy/MAX-Image-Segmenter/blob/master/app.py) and the Deep Learning Model are copied into the container during build.
+  >```docker
+  >RUN wget -nv http://max-assets.s3-api.us-geo.objectstorage.softlayer.net/deeplab/deeplabv3_pascal_trainval_2018_01_04.tar.gz && \
+  >mv deeplabv3_pascal_trainval_2018_01_04.tar.gz /workspace/assets/deeplabv3_pascal_trainval_2018_01_04.tar.gz
+  >
+  >COPY . /workspace
+  >```
 
-On your Kubernetes cluster, run the following commands:
+* **What application is started when loading the container?** 
 
-```
-$ kubectl apply -f https://raw.githubusercontent.com/IBM/MAX-Image-Segmenter/master/max-image-segmenter.yaml
-```
+  The [Docker File](https://github.com/justinmccoy/MAX-Image-Segmenter/blob/master/Dockerfile) shows where the pretrained model is downloaded from, how the application is packaged, and what is started.
+  >```Docker
+  ># Starts the Deep Learning Flask API for Image Segmentation
+  >CMD python /workspace/app.py
+  >```
 
-The model will be available internally at port `5000`, but can also be accessed externally through the `NodePort`.
+  /workspace/app.py is a Python Flask app exposing 2 endpoints `POST /model/predict` and `GET /model/metadata`
+
+  /workspace/app.py calls [api/model.py](https://github.com/justinmccoy/MAX-Image-Segmenter/blob/master/api/model.py) where the `/model/predict` endpoint is defined.
+
+* **What's happening when the `/predict` URI is invoked?**
+  >```Python
+  > @api.route('/predict')
+  > class Predict(Resource):
+  >  model_wrapper = ModelWrapper()
+  >
+  >  @api.doc('predict')
+  >  @api.expect(image_parser)
+  >  @api.marshal_with(predict_response)
+  >  def post(self):
+  >      """Make a prediction given input data"""
+  >      result = {'status': 'error'}
+  >
+  >      args = image_parser.parse_args()
+  >      image_data = args['image'].read()
+  >      image = read_image(image_data)
+  >
+  >      resized_im, seg_map = self.model_wrapper.predict(image)
+  >
+  >      result['image_size'] = resized_im.size
+  >
+  >      result['seg_map'] = seg_map
+  >      result['status'] = 'ok'
+  >      return result
+  >```
+
+  Above you see the `self.model_wrapper.predict(image)` is called, passing the image from the HTTP request to the `predict` method, where a segmentation map is returned, along side a resized version of the original image.  `predict` creates a new object `class DeepLabModel(object):` where the image segmentation model is loaded, and inference is run on the input image.
+
+* **How is the model being loaded?**
+
+  When `class DeepLabModel(object):` is instantiated the Deep Learning model (graph) is loaded into a TensorFlow Session as a TensorFlow Graph.
+
+  >```Python
+  >"""Creates and loads pre-trained deeplab model."""
+  >      self.graph = tf.Graph()
+  >
+  >      graph_def = None
+  >      # Extract frozen graph from tar archive.
+  >      tar_file = tarfile.open(tarball_path)
+  >      for tar_info in tar_file.getmembers():
+  >          if self.FROZEN_GRAPH_NAME in os.path.basename(tar_info.name):
+  >              file_handle = tar_file.extractfile(tar_info)
+  >              graph_def = tf.GraphDef.FromString(file_handle.read())
+  >              break
+  >
+  >      tar_file.close()
+  >
+  >      with self.graph.as_default():
+  >          tf.import_graph_def(graph_def, name='')
+  >
+  >     self.sess = tf.Session(graph=self.graph)
+  >
+
+
+* **How do you call the model?**
+
+  With the model loaded into a TensorFlow session, invoking it is the same as if you were testing the model after training in a Jupyter Notebook:
+  >```Python
+  > batch_seg_map = self.sess.run(
+  >          self.OUTPUT_TENSOR_NAME,
+  >          feed_dict={self.INPUT_TENSOR_NAME: [np.asarray(resized_image)]})
+  > seg_map = batch_seg_map[0]
+  >```
+
+
 
 ## References
 
@@ -213,5 +275,3 @@ The model will be available internally at port `5000`, but can also be accessed 
 | Model Code (3rd party) | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | [TensorFlow Models Repository](https://github.com/tensorflow/models/blob/master/LICENSE) |
 | Model Weights | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | [TensorFlow Models Repository](https://github.com/tensorflow/models/blob/master/LICENSE) |
 | Test Assets | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | [Asset README](assets/README.md)
-
-

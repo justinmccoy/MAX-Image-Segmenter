@@ -36,8 +36,7 @@ To build and deploy the Deep Learning model to a REST API using Docker, follow t
 1. [Build the Model](#1-build-the-model)
 2. [Deploy the Model](#2-deploy-the-model)
 3. [Use the Model](#3-use-the-model)
-4. [Run the Notebook](#4-run-the-notebook)
-5. [Development](#5-development)
+4. [Development](#4-development)
 
 
 ### 1. Build the Model
@@ -140,19 +139,9 @@ You should see a JSON response like that below:
   ]
 }
 ```
-### 4. Run the Notebook
 
-Once the model server is running, you can see how to use it by walking through [the demo notebook](demo.ipynb). _Note_ the demo requires `jupyter`, `numpy`, `Pillow`, `matplotlib` and `pycurl`.
 
-Run the following command from the model repo base folder, in a new terminal window (leaving the model server running in the other terminal window):
-
-```
-jupyter notebook
-```
-
-This will start the notebook server. You can open the demo notebook by clicking on `demo.ipynb`.
-
-### 5. Development
+### 4. Development
 
 To run the Flask API app in debug mode, edit `config.py` to set `DEBUG = True` under the application settings. You will then need to rebuild the Docker image (see [step 1](#1-build-the-model)).
 
@@ -275,3 +264,10 @@ GET /model/metadata
 | Model Code (3rd party) | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | [TensorFlow Models Repository](https://github.com/tensorflow/models/blob/master/LICENSE) |
 | Model Weights | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | [TensorFlow Models Repository](https://github.com/tensorflow/models/blob/master/LICENSE) |
 | Test Assets | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | [Asset README](assets/README.md)
+
+
+, or use [PlayWithDocker](https://labs.play-with-docker.com/) online
+* [IBM Cloud Account](https://cloud.ibm.com)
+* *(Optional)* [Promo Code for Free Kubernetes Clusters](https://ibm.biz/promo-code)
+* *(Optional)* IBM Cloud CLI [Installation Instructions](https://console.bluemix.net/docs/cli/reference/ibmcloud/cli_docker.html#using-ibm-cloud-developer-tools-from-a-docker-container)
+* *(Optional)* IBM Cloud Kubernetes Service [Installation Instructions](https://cdeploymentloud.ibm.com/containers-kubernetes/catalog/cluster)

@@ -265,9 +265,3 @@ GET /model/metadata
 | Model Weights | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | [TensorFlow Models Repository](https://github.com/tensorflow/models/blob/master/LICENSE) |
 | Test Assets | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | [Asset README](assets/README.md)
 
-
-, or use [PlayWithDocker](https://labs.play-with-docker.com/) online
-* [IBM Cloud Account](https://cloud.ibm.com)
-* *(Optional)* [Promo Code for Free Kubernetes Clusters](https://ibm.biz/promo-code)
-* *(Optional)* IBM Cloud CLI [Installation Instructions](https://console.bluemix.net/docs/cli/reference/ibmcloud/cli_docker.html#using-ibm-cloud-developer-tools-from-a-docker-container)
-* *(Optional)* IBM Cloud Kubernetes Service [Installation Instructions](https://cdeploymentloud.ibm.com/containers-kubernetes/catalog/cluster)
